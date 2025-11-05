@@ -16,6 +16,15 @@ import android.content.ContentValues
 import android.content.ContentUris
 import java.util.TimeZone
 
+// ADD: permission helpers
+import android.Manifest
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
+
+// ADD: activity result launcher for runtime permissions
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 @Composable
 fun ThoughtDetailsScreen(
     item: ThoughtWithReport?,
@@ -31,6 +40,19 @@ fun ThoughtDetailsScreen(
     // EDIT: edit/delete dialog state
     var showEdit by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    // ADD: runtime permission launcher for calendar
+    val calendarPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val granted = (grants[Manifest.permission.WRITE_CALENDAR] == true) &&
+                      (grants[Manifest.permission.READ_CALENDAR] == true)
+        Toast.makeText(
+            context,
+            if (granted) "Calendar permissions granted" else "Calendar permissions denied",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
 
     Column(Modifier.padding(16.dp)) {
         Text(item.thought.title, style = MaterialTheme.typography.titleLarge)
@@ -55,12 +77,30 @@ fun ThoughtDetailsScreen(
 
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // NEW: Add to Calendar
+            // NEW: Add to Calendar (permission-aware)
             Button(
                 enabled = item.thought.dueAt != null,
                 onClick = {
                     val due = item.thought.dueAt
                     if (due != null) {
+                        val hasWrite = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.WRITE_CALENDAR
+                        ) == PackageManager.PERMISSION_GRANTED
+                        val hasRead = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.READ_CALENDAR
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (!hasWrite || !hasRead) {
+                            // ASK: request permissions, then user can press again
+                            calendarPermLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.WRITE_CALENDAR,
+                                    Manifest.permission.READ_CALENDAR
+                                )
+                            )
+                            return@Button
+                        }
+
                         val eventId = createCalendarEvent(
                             context = context,
                             title = item.thought.title,
@@ -77,6 +117,24 @@ fun ThoughtDetailsScreen(
                     }
                 }
             ) { Text("Add to Calendar") }
+
+            // ADD: Open Calendar editor (no direct write permission required)
+            Button(
+                enabled = item.thought.dueAt != null,
+                onClick = {
+                    val due = item.thought.dueAt
+                    if (due != null) {
+                        openCalendarEditor(
+                            context = context,
+                            title = item.thought.title,
+                            description = item.thought.summary,
+                            startMillis = due
+                        )
+                    } else {
+                        Toast.makeText(context, "No due date", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            ) { Text("Open Calendar editor") }
 
             // NEW: Share report
             Button(onClick = {
@@ -109,6 +167,25 @@ fun ThoughtDetailsScreen(
                 clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Summary", item.thought.summary))
                 Toast.makeText(context, "Summary copied", Toast.LENGTH_SHORT).show()
             }) { Text("Copy Summary") }
+
+            // ADD: Copy Details
+            Button(onClick = {
+                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Details", item.thought.fullText))
+                Toast.makeText(context, "Details copied", Toast.LENGTH_SHORT).show()
+            }) { Text("Copy Details") }
+
+            // ADD: Copy Report
+            Button(onClick = {
+                val report = item.report?.content
+                if (report.isNullOrBlank()) {
+                    Toast.makeText(context, "No report to copy", Toast.LENGTH_SHORT).show()
+                } else {
+                    val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Report", report))
+                    Toast.makeText(context, "Report copied", Toast.LENGTH_SHORT).show()
+                }
+            }) { Text("Copy Report") }
         }
 
         // EDIT: edit/delete actions
@@ -256,6 +333,23 @@ private fun createCalendarEvent(
     context.contentResolver.insert(CalendarContract.Reminders.CONTENT_URI, reminderValues)
 
     return eventId
+}
+
+// ADD: helper to open Calendar editor with prefilled event (works without calendar permissions)
+private fun openCalendarEditor(
+    context: android.content.Context,
+    title: String,
+    description: String,
+    startMillis: Long
+) {
+    val intent = Intent(Intent.ACTION_INSERT).apply {
+        data = CalendarContract.Events.CONTENT_URI
+        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
+        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, startMillis + 60 * 60 * 1000)
+        putExtra(CalendarContract.Events.TITLE, title)
+        putExtra(CalendarContract.Events.DESCRIPTION, description)
+    }
+    context.startActivity(intent)
 }
 
 data class ThoughtUpdate(
