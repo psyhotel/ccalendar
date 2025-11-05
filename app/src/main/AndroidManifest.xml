@@ -1,0 +1,14 @@
+<!-- ... existing manifest ... -->
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.READ_CALENDAR" />
+<uses-permission android:name="android.permission.WRITE_CALENDAR" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+<!-- Android 14+: declare foreground service type -->
+<application
+    android:allowBackup="true"
+    android:label="@string/app_name"
+    android:supportsRtl="true">
+    <!-- ... existing application components ... -->
+</application>
+<!-- ... existing manifest ... -->
