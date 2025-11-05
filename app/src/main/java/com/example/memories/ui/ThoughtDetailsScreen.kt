@@ -19,7 +19,6 @@ import java.util.TimeZone
 @Composable
 fun ThoughtDetailsScreen(
     item: ThoughtWithReport?,
-    // EDIT: callbacks with defaults so existing calls still compile
     onUpdate: (ThoughtUpdate) -> Unit = {},
     onDelete: (Long) -> Unit = {}
 ) {
@@ -259,7 +258,6 @@ private fun createCalendarEvent(
     return eventId
 }
 
-// EDIT: simple update payload
 data class ThoughtUpdate(
     val id: Long,
     val title: String,

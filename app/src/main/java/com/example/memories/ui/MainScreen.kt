@@ -85,3 +85,35 @@ fun ThoughtRow(item: ThoughtWithReport, onSelect: (Long) -> Unit) {
         Text(item.thought.summary, maxLines = 3)
     }
 }
+
+// ... existing code ...
+
+    // example navigation state (replace with your NavHost if you have one)
+    var selectedThought by remember { mutableStateOf<ThoughtWithReport?>(null) }
+
+    // ... existing list UI ...
+    // on select:
+    // selectedThought = item
+
+    // show details
+    selectedThought?.let { item ->
+        ThoughtDetailsScreen(
+            item = item,
+            onUpdate = { upd ->
+                vm.updateThought(
+                    thoughtId = upd.id,
+                    title = upd.title,
+                    category = upd.category,
+                    summary = upd.summary,
+                    fullText = upd.fullText,
+                    dueAt = upd.dueAt
+                )
+            },
+            onDelete = { id ->
+                vm.deleteThought(id)
+                // close details after delete
+                selectedThought = null
+            }
+        )
+    }
+}

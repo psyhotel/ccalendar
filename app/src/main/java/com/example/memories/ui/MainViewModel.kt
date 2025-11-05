@@ -34,7 +34,7 @@ class MainViewModel(private val appContext: android.content.Context) : androidx.
         WorkManager.getInstance(appContext).enqueue(work)
     }
 
-    // ADD: update thought
+    // add: update thought
     fun updateThought(
         thoughtId: Long,
         title: String,
@@ -49,7 +49,7 @@ class MainViewModel(private val appContext: android.content.Context) : androidx.
         }
     }
 
-    // ADD: delete thought
+    // add: delete thought
     fun deleteThought(thoughtId: Long) {
         viewModelScope.launch {
             repo.deleteThoughtCascade(thoughtId)
