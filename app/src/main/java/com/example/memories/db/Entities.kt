@@ -99,4 +99,25 @@ interface ThoughtDao {
     @Transaction
     @Query("SELECT * FROM thoughts WHERE id = :id")
     suspend fun getThoughtWithReport(id: Long): ThoughtWithReport?
+
+    // ADD: fetch single entities for update/delete cascade
+    @Query("SELECT * FROM thoughts WHERE id = :id")
+    suspend fun getThoughtById(id: Long): ThoughtEntity?
+
+    @Query("SELECT * FROM transcriptions WHERE id = :id")
+    suspend fun getTranscriptionById(id: Long): TranscriptionEntity?
+
+    @Query("SELECT * FROM recordings WHERE id = :id")
+    suspend fun getRecordingById(id: Long): RecordingEntity?
+
+    // ADD: update thought
+    @Update
+    suspend fun updateThought(t: ThoughtEntity)
+
+    // ADD: delete chain parts
+    @Query("DELETE FROM transcriptions WHERE id = :id")
+    suspend fun deleteTranscriptionById(id: Long)
+
+    @Query("DELETE FROM recordings WHERE id = :id")
+    suspend fun deleteRecordingById(id: Long)
 }

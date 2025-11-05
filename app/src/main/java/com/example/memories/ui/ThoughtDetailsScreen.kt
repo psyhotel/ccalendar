@@ -2,7 +2,7 @@ package com.example.memories.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.* // EDIT: add state helpers
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.memories.db.ThoughtWithReport
@@ -17,12 +17,22 @@ import android.content.ContentUris
 import java.util.TimeZone
 
 @Composable
-fun ThoughtDetailsScreen(item: ThoughtWithReport?) {
+fun ThoughtDetailsScreen(
+    item: ThoughtWithReport?,
+    // EDIT: callbacks with defaults so existing calls still compile
+    onUpdate: (ThoughtUpdate) -> Unit = {},
+    onDelete: (Long) -> Unit = {}
+) {
     if (item == null) {
         Text("Not found")
         return
     }
     val context = LocalContext.current
+
+    // EDIT: edit/delete dialog state
+    var showEdit by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Column(Modifier.padding(16.dp)) {
         Text(item.thought.title, style = MaterialTheme.typography.titleLarge)
         Text(item.thought.category, style = MaterialTheme.typography.labelLarge)
@@ -101,6 +111,92 @@ fun ThoughtDetailsScreen(item: ThoughtWithReport?) {
                 Toast.makeText(context, "Summary copied", Toast.LENGTH_SHORT).show()
             }) { Text("Copy Summary") }
         }
+
+        // EDIT: edit/delete actions
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { showEdit = true }) { Text("Edit") }
+            Button(colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                onClick = { showDeleteConfirm = true }) { Text("Delete") }
+        }
+    }
+
+    // EDIT: Edit Dialog
+    if (showEdit) {
+        var title by remember(item.thought.id) { mutableStateOf(item.thought.title) }
+        var category by remember(item.thought.id) { mutableStateOf(item.thought.category) }
+        var summary by remember(item.thought.id) { mutableStateOf(item.thought.summary) }
+        var details by remember(item.thought.id) { mutableStateOf(item.thought.fullText) }
+        var hasDue by remember(item.thought.id) { mutableStateOf(item.thought.dueAt != null) }
+        var dueMillisText by remember(item.thought.id) {
+            mutableStateOf(item.thought.dueAt?.toString() ?: "")
+        }
+
+        AlertDialog(
+            onDismissRequest = { showEdit = false },
+            title = { Text("Edit Thought") },
+            text = {
+                Column {
+                    TextField(value = title, onValueChange = { title = it }, label = { Text("Title") })
+                    Spacer(Modifier.height(8.dp))
+                    TextField(value = category, onValueChange = { category = it }, label = { Text("Category") })
+                    Spacer(Modifier.height(8.dp))
+                    TextField(value = summary, onValueChange = { summary = it }, label = { Text("Summary") })
+                    Spacer(Modifier.height(8.dp))
+                    TextField(value = details, onValueChange = { details = it }, label = { Text("Details") })
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        Checkbox(checked = hasDue, onCheckedChange = {
+                            hasDue = it
+                            if (!it) dueMillisText = ""
+                        })
+                        Spacer(Modifier.width(8.dp))
+                        Text("Has due date (ms)")
+                    }
+                    if (hasDue) {
+                        Spacer(Modifier.height(8.dp))
+                        TextField(
+                            value = dueMillisText,
+                            onValueChange = { dueMillisText = it },
+                            label = { Text("Due time millis") }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val dueAt = if (hasDue) dueMillisText.toLongOrNull() else null
+                    onUpdate(
+                        ThoughtUpdate(
+                            id = item.thought.id,
+                            title = title,
+                            category = category,
+                            summary = summary,
+                            fullText = details,
+                            dueAt = dueAt
+                        )
+                    )
+                    showEdit = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showEdit = false }) { Text("Cancel") } }
+        )
+    }
+
+    // EDIT: Delete Confirmation
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Thought") },
+            text = { Text("This will remove the thought, its report, transcription, recording, and audio file. Proceed?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(item.thought.id)
+                    showDeleteConfirm = false
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } }
+        )
     }
 }
 
@@ -162,3 +258,13 @@ private fun createCalendarEvent(
 
     return eventId
 }
+
+// EDIT: simple update payload
+data class ThoughtUpdate(
+    val id: Long,
+    val title: String,
+    val category: String,
+    val summary: String,
+    val fullText: String,
+    val dueAt: Long?
+)
